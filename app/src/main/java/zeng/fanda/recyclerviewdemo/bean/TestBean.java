@@ -7,6 +7,19 @@ package zeng.fanda.recyclerviewdemo.bean;
 public class TestBean {
     private String title ;
     private String content;
+    private int rank;
+
+    public TestBean(int rank) {
+        this.rank = rank;
+    }
+
+    public int getRank() {
+        return rank;
+    }
+
+    public void setRank(int rank) {
+        this.rank = rank;
+    }
 
     public String getTitle() {
         return title;

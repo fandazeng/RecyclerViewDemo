@@ -19,27 +19,67 @@ import zeng.fanda.recyclerviewdemo.bean.TestBean;
  * @author 曾凡达
  * @date 2018/5/29
  */
-public class TestAdapter extends RecyclerView.Adapter<TestAdapter.TestViewHolder> {
+public class TestAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private Context mContext;
     private List<TestBean> mTestBeanList;
+    private OnItemClickListener mOnItemClickListener;
 
     public TestAdapter(Context context, List<TestBean> testBeanList) {
         mContext = context;
         mTestBeanList = testBeanList;
     }
 
+    public void setOnItemClickListener(OnItemClickListener onItemClickListener) {
+        mOnItemClickListener = onItemClickListener;
+    }
+
     @NonNull
     @Override
-    public TestViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(mContext).inflate(R.layout.item_test_small, parent, false);
-        return new TestViewHolder(view);
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        if (viewType == 0) {
+            return new TestViewHolderSmall(LayoutInflater.from(mContext).inflate(R.layout.item_test_small, parent, false));
+        } else {
+            return new TestViewHolderBig(LayoutInflater.from(mContext).inflate(R.layout.item_test_big, parent, false));
+        }
     }
 
     @Override
-    public void onBindViewHolder(@NonNull TestViewHolder holder, int position) {
-        holder.mName.setText("我是帅哥");
-        holder.mContent.setText("是的");
+    public void onBindViewHolder(@NonNull final RecyclerView.ViewHolder holder, int position) {
+
+        int type = holder.getItemViewType();
+        if (type == 0) {
+            TestViewHolderSmall holderSmall = (TestViewHolderSmall) holder;
+            holderSmall.mName.setText("我是帅哥");
+            holderSmall.mContent.setText("是的"+mTestBeanList.get(position).getRank());
+
+            if (mOnItemClickListener != null) {
+                holderSmall.mRootVeiw.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        mOnItemClickListener.onItemClick(view, holder.getLayoutPosition());
+                    }
+                });
+            }
+        } else {
+            TestViewHolderBig holderBig = (TestViewHolderBig) holder;
+            holderBig.mName.setText("我是帅哥");
+            holderBig.mContent.setText("是的"+mTestBeanList.get(position).getRank());
+            if (mOnItemClickListener != null) {
+                holderBig.mRootVeiw.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        mOnItemClickListener.onItemClick(view, holder.getLayoutPosition());
+                    }
+                });
+            }
+        }
+
+    }
+
+    @Override
+    public int getItemViewType(int position) {
+        return position % 2;
     }
 
     @Override
@@ -47,7 +87,10 @@ public class TestAdapter extends RecyclerView.Adapter<TestAdapter.TestViewHolder
         return mTestBeanList.size();
     }
 
-    class TestViewHolder extends RecyclerView.ViewHolder {
+    class TestViewHolderSmall extends RecyclerView.ViewHolder {
+
+        @BindView(R.id.root_view)
+        View mRootVeiw;
 
         @BindView(R.id.tv_name)
         TextView mName ;
@@ -55,10 +98,37 @@ public class TestAdapter extends RecyclerView.Adapter<TestAdapter.TestViewHolder
         @BindView(R.id.tv_content)
         TextView mContent ;
 
-        public TestViewHolder(View itemView) {
+        public TestViewHolderSmall(View itemView) {
             super(itemView);
             ButterKnife.bind(this,itemView);
         }
+    }
+
+    class TestViewHolderBig extends RecyclerView.ViewHolder {
+
+        @BindView(R.id.root_view)
+        View mRootVeiw;
+
+        @BindView(R.id.tv_name)
+        TextView mName ;
+
+        @BindView(R.id.tv_content)
+        TextView mContent ;
+
+        public TestViewHolderBig(View itemView) {
+            super(itemView);
+            ButterKnife.bind(this,itemView);
+        }
+    }
+
+    public interface OnItemClickListener{
+        void onItemClick(View view, int position);
+    }
+
+    public void removeItem(int position) {
+        mTestBeanList.remove(position);
+        notifyItemRemoved(position);
+
     }
 
 }
