@@ -6,7 +6,10 @@ import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.view.MotionEvent;
 import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -17,17 +20,25 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 import zeng.fanda.recyclerviewdemo.adapter.TestAdapter;
 import zeng.fanda.recyclerviewdemo.bean.TestBean;
+import zeng.fanda.recyclerviewdemo.utils.DpUtil;
 import zeng.fanda.recyclerviewdemo.widget.GridItemDecoration;
 import zeng.fanda.recyclerviewdemo.widget.LinearItemDecoration;
+import zeng.fanda.recyclerviewdemo.widget.MyRecyclerView;
 
 public class MainActivity extends AppCompatActivity {
 
     @BindView(R.id.recycler_test)
-    RecyclerView mRecyclerTest;
+    MyRecyclerView mRecyclerTest;
+    @BindView(R.id.rl_top_layout)
+    RelativeLayout mTopLayout;
 
     TestAdapter mTestAdapter;
-
     private List<TestBean> mTestBeanList;
+
+    private int mLastY;
+    private int mTopPlayLayoutHeight ;
+
+    private FrameLayout.LayoutParams mTopPlayParams;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,6 +47,16 @@ public class MainActivity extends AppCompatActivity {
         ButterKnife.bind(this);
         initTestData();
         initRecyclerView();
+
+        mTopPlayLayoutHeight = (int) DpUtil.dp2px(this, 64f);
+        mTopPlayParams = (FrameLayout.LayoutParams) mTopLayout.getLayoutParams();
+
+        mRecyclerTest.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                return false;
+            }
+        });
     }
 
     private void initTestData() {
@@ -58,19 +79,34 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(View view, int position) {
 //                Toast.makeText(MainActivity.this,position+"",Toast.LENGTH_SHORT).show();
-                mTestAdapter.removeItem(position);
+//                mTestAdapter.removeItem(position);
             }
         });
     }
 
-    @OnClick({R.id.btn_remove})
-    public void onClick(View view){
-            switch (view.getId()){
-                case R.id.btn_remove:
-                    mTestAdapter.removeItem(1);
-                    break;
-                default:
-                    break;
-            }
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                mLastY = (int) event.getY();
+                break;
+            case MotionEvent.ACTION_MOVE:
+                int y = (int) event.getY();
+                int deltaY = y - mLastY;
+                if (Math.abs(deltaY) > 30) {
+                    //是否完全显示
+                    if (mTopPlayParams.topMargin >= -mTopPlayLayoutHeight && mTopPlayParams.topMargin <= 0) {
+                        if (deltaY > 0) {//下滑
+                            int translationY = (int) (mRecyclerTest.getY() + deltaY);
+                            mRecyclerTest.setY(translationY);
+//                            mRecyclerviewAudiio.animate().y(translationY).start();
+                        }
+                    }
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+                break;
+        }
+        return super.onTouchEvent(event);
     }
 }

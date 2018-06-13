@@ -31,5 +31,6 @@ dependencies {
     }
     annotationProcessor rootProject.ext.dependencies["butterknife-compiler"]
     api rootProject.ext.dependencies["annotations"]
+    api "com.andkulikov:transitionseverywhere:1.7.9"
 
 }
