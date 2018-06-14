@@ -56,7 +56,7 @@ public class TestActivity extends AppCompatActivity {
             if (layoutManager instanceof LinearLayoutManager) {
                 int firstVisibleItemPosition = ((LinearLayoutManager) layoutManager).findFirstVisibleItemPosition();
                 View childAt = recyclerView.getChildAt(0);
-                if (childAt == null || (firstVisibleItemPosition == 0 && childAt.getTop() == 0)) {
+                if (childAt == null || (firstVisibleItemPosition == 0 && childAt.getTop() >= 0)) {
                     return true;
                 }
             }

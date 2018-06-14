@@ -4,21 +4,17 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
-import android.widget.RelativeLayout;
-
-import com.transitionseverywhere.TransitionManager;
 
 import zeng.fanda.recyclerviewdemo.R;
-import zeng.fanda.recyclerviewdemo.utils.DpUtil;
 
 /**
  * @author 曾凡达
@@ -37,25 +33,30 @@ public class MyStickyLayout extends FrameLayout {
     private float mLastYIntercept = 0;
 
     private int mTouchSlop;
-    private int mMaximumVelocity, mMinimumVelocity;
+    private static final int ANIMATION_TIME = 300;
+    private static final int VELOCITY_MAX = 1000;
 
-    private View mContentView,mHeadView,mBottomView;
+    private View mContentView, mHeadView, mBottomView;
 
     private VelocityTracker mVelocityTracker;
 
-    private FrameLayout.LayoutParams mBottomViewParams,mHeadViewParams,mContentViewParams;
-    private int mOriginalRecyclerMargin,mOriginalHeadMargin,mOriginalMiddleMargin,mOriginalContentMargin;
+    private FrameLayout.LayoutParams mBottomViewParams, mHeadViewParams, mContentViewParams;
+    private int mOriginalBottomMargin, mOriginalHeadMargin, mOriginalMiddleMargin, mOriginalContentMargin;
 
-    private ValueAnimator mRecyclerAnimator,mHeadAnimator,mContentAnimator;
+    private ValueAnimator mBottomAnimator, mHeadAnimator, mContentAnimator;
 
     private TopTouchEventListener mTopTouchEventListener;
 
     private STATUS mStatus = STATUS.COLLAPSED;
+    private DIRECTION mDirection = DIRECTION.UP;
 
     private enum STATUS {
         EXPANDED, COLLAPSED
     }
 
+    enum DIRECTION {
+        UP, DOWN
+    }
 
     public MyStickyLayout(@NonNull Context context) {
         this(context, null);
@@ -68,8 +69,6 @@ public class MyStickyLayout extends FrameLayout {
     public MyStickyLayout(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
-        mMaximumVelocity = ViewConfiguration.get(context).getScaledMaximumFlingVelocity();
-        mMinimumVelocity = ViewConfiguration.get(context).getScaledMinimumFlingVelocity();
         if (mVelocityTracker == null) {
             mVelocityTracker = VelocityTracker.obtain();
         }
@@ -85,10 +84,10 @@ public class MyStickyLayout extends FrameLayout {
         mBottomViewParams = (LayoutParams) mBottomView.getLayoutParams();
         mHeadViewParams = (LayoutParams) mHeadView.getLayoutParams();
         mContentViewParams = (LayoutParams) mContentView.getLayoutParams();
-        mOriginalRecyclerMargin = mBottomViewParams.topMargin;
+        mOriginalBottomMargin = mBottomViewParams.topMargin;
         mOriginalHeadMargin = mHeadViewParams.topMargin;
         mOriginalContentMargin = mContentViewParams.topMargin;
-        mOriginalMiddleMargin = mOriginalRecyclerMargin + mOriginalHeadMargin;
+        mOriginalMiddleMargin = mOriginalBottomMargin + mOriginalHeadMargin;
 
     }
 
@@ -99,7 +98,6 @@ public class MyStickyLayout extends FrameLayout {
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
         float y = ev.getY();
-
         switch (ev.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 mLastYIntercept = y;
@@ -107,15 +105,15 @@ public class MyStickyLayout extends FrameLayout {
                 break;
             case MotionEvent.ACTION_MOVE:
                 float deltaY = y - mLastYIntercept;
-                if (mStatus == STATUS.EXPANDED) {
+                if (mStatus == STATUS.EXPANDED) {//头部View是展开的状态
                     if (mTopTouchEventListener != null) {
-                        if (mTopTouchEventListener.isBottomViewTop()) {
-                            if (deltaY > 0) {
+                        if (mTopTouchEventListener.isBottomViewTop()) {//内容View滑到了顶部
+                            if (deltaY > 0 && Math.abs(deltaY) > mTouchSlop) {//下滑，父布局拦截
                                 return true;
                             }
                         }
                     }
-                } else if (Math.abs(deltaY) > mTouchSlop) {
+                } else if (Math.abs(deltaY) > mTouchSlop) {//头部View不是展开的状态
                     return true;
                 }
                 break;
@@ -131,37 +129,64 @@ public class MyStickyLayout extends FrameLayout {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        mVelocityTracker.addMovement(event);
         float y = event.getY();
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 break;
             case MotionEvent.ACTION_MOVE:
                 float deltaY = y - mLastY;
-                if (deltaY < 0) {//上滑
+                if (deltaY < 0 ) {
+                    //上滑
+                    mDirection = DIRECTION.UP;
                     //底部View处理
                     mBottomViewParams.topMargin += deltaY;
                     mBottomView.setLayoutParams(mBottomViewParams);
 
                     //头部View处理
-                    float moveheight = mOriginalRecyclerMargin - mBottomViewParams.topMargin;
-                    float percent = moveheight / mOriginalMiddleMargin;
-                    mHeadViewParams.topMargin = mOriginalHeadMargin - (int) (percent * mOriginalHeadMargin);
+                    float moveheight = mOriginalBottomMargin - mBottomViewParams.topMargin;//底部View移动的高度
+                    float percent = moveheight / mOriginalMiddleMargin;//底部View移动的百分比
+                    mHeadViewParams.topMargin = mOriginalHeadMargin - (int) (percent * mOriginalHeadMargin);//头部View移动的高度
+                    mHeadView.setLayoutParams(mHeadViewParams);
 
-                    //内容View处理
+                    //内容View处理，移动的高度等于头部View的高度
                     mContentViewParams.topMargin = (int) (percent * mOriginalHeadMargin);
                     mContentView.setLayoutParams(mContentViewParams);
-                    Log.d("MyStickyLayout", "mOriginalRecyclerMargin = " + mOriginalRecyclerMargin + " , topMargin = " + mHeadViewParams.topMargin + " , mOriginalMiddleMargin = " + mOriginalMiddleMargin + ", moveheight= " + moveheight + ", percent = " + percent);
+
+
+                    Log.d("MyStickyLayout", "mOriginalBottomMargin = " + mOriginalBottomMargin + " , topMargin = " + mHeadViewParams.topMargin + " , mOriginalMiddleMargin = " + mOriginalMiddleMargin + ", moveheight= " + moveheight + ", percent = " + percent);
+
+                } else if (deltaY > 0 && mStatus == STATUS.EXPANDED) {
+                    //下滑
+                    mDirection = DIRECTION.DOWN;
+                    //底部View处理
+                    mBottomViewParams.topMargin += deltaY;
+                    mBottomView.setLayoutParams(mBottomViewParams);
+
+                    //头部View处理
+                    float moveheight = mBottomViewParams.topMargin - Math.abs(mOriginalHeadMargin);//底部View移动的高度
+                    float percent = moveheight / mOriginalMiddleMargin;//底部View移动的百分比
+                    mHeadViewParams.topMargin = (int) (percent * mOriginalHeadMargin);//头部View移动的高度
                     mHeadView.setLayoutParams(mHeadViewParams);
+
+                    //内容View处理，移动的高度等于头部View的高度
+                    mContentViewParams.topMargin = mOriginalHeadMargin - (int) (percent * mOriginalHeadMargin);
+                    mContentView.setLayoutParams(mContentViewParams);
+
+
+                    Log.d("MyStickyLayout", "mOriginalBottomMargin = " + mOriginalBottomMargin + " , topMargin = " + mHeadViewParams.topMargin + " , mOriginalMiddleMargin = " + mOriginalMiddleMargin + ", percent = " + percent);
                 }
                 break;
             case MotionEvent.ACTION_UP:
-                dealContentAnimator();
-                dealHeadAnimator();
-                dealRecyclerAnimator();
-                if (mBottomViewParams.topMargin < mOriginalRecyclerMargin / 2) {
-                    mStatus = STATUS.EXPANDED;
-                    Log.d("MyStickyLayout", "STATUS=" + mStatus);
+                mVelocityTracker.computeCurrentVelocity(1000);
+                float yVelocity = mVelocityTracker.getYVelocity();
+                Log.d("MyStickyLayout", "yVelocity = " + yVelocity);
+                if (mDirection == DIRECTION.UP) {
+                    dealUpSlidAnimator(yVelocity);
+                } else {
+                    dealDownSlidAnimator(yVelocity);
                 }
+                break;
             default:
                 break;
         }
@@ -169,30 +194,25 @@ public class MyStickyLayout extends FrameLayout {
         return super.onTouchEvent(event);
     }
 
-    private void dealContentAnimator() {
-        if (mBottomViewParams.topMargin > mOriginalRecyclerMargin / 2) {
-            mContentAnimator = ValueAnimator.ofInt(mContentViewParams.topMargin, mOriginalContentMargin).setDuration(300);
+    /**
+     * 处理上滑逻辑
+     */
+    private void dealUpSlidAnimator(float yVelocity) {
+        if (isUpSlideScrollToSlide()||Math.abs(yVelocity)>VELOCITY_MAX) {
+            mStatus = STATUS.EXPANDED;
+            mHeadAnimator = ValueAnimator.ofInt(mHeadViewParams.topMargin, 0);
+            mContentAnimator = ValueAnimator.ofInt(mContentViewParams.topMargin, mOriginalHeadMargin);
+            mBottomAnimator = ValueAnimator.ofInt(mBottomViewParams.topMargin, Math.abs(mOriginalHeadMargin));
         } else {
-            mContentAnimator = ValueAnimator.ofInt(mContentViewParams.topMargin, 0).setDuration(300);
+            mHeadAnimator = ValueAnimator.ofInt(mHeadViewParams.topMargin, mOriginalHeadMargin);
+            mContentAnimator = ValueAnimator.ofInt(mContentViewParams.topMargin, mOriginalContentMargin);
+            mBottomAnimator = ValueAnimator.ofInt(mBottomViewParams.topMargin, mOriginalBottomMargin);
         }
-        mContentAnimator.removeAllUpdateListeners();
-        mContentAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                mContentViewParams .topMargin = (int) valueAnimator.getAnimatedValue();
-                mContentView.setLayoutParams(mContentViewParams);
-            }
-        });
-        mContentAnimator.start();
-    }
 
-    private void dealHeadAnimator() {
-        if (mBottomViewParams.topMargin > mOriginalRecyclerMargin / 2) {
-            mHeadAnimator = ValueAnimator.ofInt(mHeadViewParams.topMargin, mOriginalHeadMargin).setDuration(300);
-        } else {
-            mHeadAnimator = ValueAnimator.ofInt(mHeadViewParams.topMargin, 0).setDuration(300);
-        }
         mHeadAnimator.removeAllUpdateListeners();
+        mContentAnimator.removeAllUpdateListeners();
+        mBottomAnimator.removeAllUpdateListeners();
+
         mHeadAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator valueAnimator) {
@@ -200,28 +220,103 @@ public class MyStickyLayout extends FrameLayout {
                 mHeadView.setLayoutParams(mHeadViewParams);
             }
         });
-        mHeadAnimator.start();
-    }
 
-    private void dealRecyclerAnimator() {
-        if (mBottomViewParams.topMargin > mOriginalRecyclerMargin / 2) {
-            mRecyclerAnimator = ValueAnimator.ofInt(mBottomViewParams.topMargin, mOriginalRecyclerMargin).setDuration(300);
-        } else {
-            mRecyclerAnimator = ValueAnimator.ofInt(mBottomViewParams.topMargin, Math.abs(mOriginalHeadMargin)).setDuration(300);
-        }
-        mRecyclerAnimator.removeAllUpdateListeners();
-        mRecyclerAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+        mContentAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                mContentViewParams.topMargin = (int) valueAnimator.getAnimatedValue();
+                mContentView.setLayoutParams(mContentViewParams);
+            }
+        });
+
+        mBottomAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator valueAnimator) {
                 mBottomViewParams.topMargin = (int) valueAnimator.getAnimatedValue();
                 mBottomView.setLayoutParams(mBottomViewParams);
             }
         });
-        mRecyclerAnimator.start();
+
+            mHeadAnimator.setDuration(ANIMATION_TIME).start();
+            mContentAnimator.setDuration(ANIMATION_TIME).start();
+            mBottomAnimator.setDuration(ANIMATION_TIME).start();
+
+    }
+
+    /**
+     * 处理下滑逻辑
+     */
+    private void dealDownSlidAnimator(float yVelocity) {
+        if (isDownSlideScrollToSlide()||Math.abs(yVelocity)>VELOCITY_MAX) {
+            mStatus = STATUS.COLLAPSED;
+            mHeadAnimator = ValueAnimator.ofInt(mHeadViewParams.topMargin, mOriginalHeadMargin);
+            mContentAnimator = ValueAnimator.ofInt(mContentViewParams.topMargin, mOriginalContentMargin);
+            mBottomAnimator = ValueAnimator.ofInt(mBottomViewParams.topMargin, mOriginalBottomMargin);
+        } else {
+            mHeadAnimator = ValueAnimator.ofInt(mHeadViewParams.topMargin, 0);
+            mContentAnimator = ValueAnimator.ofInt(mContentViewParams.topMargin, mOriginalHeadMargin);
+            mBottomAnimator = ValueAnimator.ofInt(mBottomViewParams.topMargin, Math.abs(mOriginalHeadMargin));
+        }
+
+        mHeadAnimator.removeAllUpdateListeners();
+        mContentAnimator.removeAllUpdateListeners();
+        mBottomAnimator.removeAllUpdateListeners();
+
+        mHeadAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                mHeadViewParams.topMargin = (int) valueAnimator.getAnimatedValue();
+                mHeadView.setLayoutParams(mHeadViewParams);
+            }
+        });
+
+        mContentAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                mContentViewParams.topMargin = (int) valueAnimator.getAnimatedValue();
+                mContentView.setLayoutParams(mContentViewParams);
+            }
+        });
+
+        mBottomAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                mBottomViewParams.topMargin = (int) valueAnimator.getAnimatedValue();
+                mBottomView.setLayoutParams(mBottomViewParams);
+            }
+        });
+
+            mHeadAnimator.setDuration(ANIMATION_TIME).start();
+            mContentAnimator.setDuration(ANIMATION_TIME).start();
+            mBottomAnimator.setDuration(ANIMATION_TIME).start();
+
+    }
+
+    /**
+     * 上滑到两边的临界点
+     */
+    private boolean isUpSlideScrollToSlide() {
+        //滑动距离超过底部View的topMargin的一半
+        return mBottomViewParams.topMargin < mOriginalBottomMargin / 1.5;
+    }
+
+    /**
+     * 下滑动到两边的临界点
+     */
+    private boolean isDownSlideScrollToSlide() {
+        //滑动距离超过底部View的topMargin的一半
+        return mBottomViewParams.topMargin > mOriginalBottomMargin / 3;
     }
 
     public interface TopTouchEventListener {
         boolean isBottomViewTop();
     }
 
+    @Override
+    protected void onDetachedFromWindow() {
+        if (mVelocityTracker != null) {
+            mVelocityTracker.recycle();
+        }
+        super.onDetachedFromWindow();
+    }
 }
