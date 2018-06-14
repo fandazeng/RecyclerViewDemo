@@ -13,7 +13,7 @@
     <RelativeLayout
         android:id="@id/sticky_content_view"
         android:layout_width="match_parent"
-        android:layout_height="400dp"
+        android:layout_height="500dp"
         android:background="@mipmap/base_splash_bg"/>
 
     <RelativeLayout
@@ -25,7 +25,7 @@
 
     <android.support.v7.widget.RecyclerView
         android:id="@id/sticky_recycler_view"
-        android:layout_marginTop="400dp"
+        android:layout_marginTop="500dp"
         android:background="#ffffff"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>

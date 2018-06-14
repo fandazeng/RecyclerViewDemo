@@ -33,7 +33,7 @@ public class MyStickyLayout extends FrameLayout {
     private float mLastYIntercept = 0;
 
     private int mTouchSlop;
-    private static final int ANIMATION_TIME = 300;
+    private static final int ANIMATION_TIME = 200;
     private static final int VELOCITY_MAX = 1000;
 
     private View mContentView, mHeadView, mBottomView;
@@ -72,6 +72,7 @@ public class MyStickyLayout extends FrameLayout {
         if (mVelocityTracker == null) {
             mVelocityTracker = VelocityTracker.obtain();
         }
+        setClickable(true);
 
     }
 
@@ -136,45 +137,47 @@ public class MyStickyLayout extends FrameLayout {
                 break;
             case MotionEvent.ACTION_MOVE:
                 float deltaY = y - mLastY;
-                if (deltaY < 0 ) {
+                if (deltaY < 0) {
                     //上滑
                     mDirection = DIRECTION.UP;
                     //底部View处理
-                    mBottomViewParams.topMargin += deltaY;
-                    mBottomView.setLayoutParams(mBottomViewParams);
+                    if (mBottomViewParams.topMargin > Math.abs(mOriginalHeadMargin)) {
+                        mBottomViewParams.topMargin += deltaY;
+                        mBottomView.setLayoutParams(mBottomViewParams);
 
-                    //头部View处理
-                    float moveheight = mOriginalBottomMargin - mBottomViewParams.topMargin;//底部View移动的高度
-                    float percent = moveheight / mOriginalMiddleMargin;//底部View移动的百分比
-                    mHeadViewParams.topMargin = mOriginalHeadMargin - (int) (percent * mOriginalHeadMargin);//头部View移动的高度
-                    mHeadView.setLayoutParams(mHeadViewParams);
+                        //头部View处理
+                        float moveheight = mOriginalBottomMargin - mBottomViewParams.topMargin;//底部View移动的高度
+                        float percent = moveheight / mOriginalMiddleMargin;//底部View移动的百分比
+                        mHeadViewParams.topMargin = mOriginalHeadMargin - (int) (percent * mOriginalHeadMargin);//头部View移动的高度
+                        mHeadView.setLayoutParams(mHeadViewParams);
 
-                    //内容View处理，移动的高度等于头部View的高度
-                    mContentViewParams.topMargin = (int) (percent * mOriginalHeadMargin);
-                    mContentView.setLayoutParams(mContentViewParams);
-
-
-                    Log.d("MyStickyLayout", "mOriginalBottomMargin = " + mOriginalBottomMargin + " , topMargin = " + mHeadViewParams.topMargin + " , mOriginalMiddleMargin = " + mOriginalMiddleMargin + ", moveheight= " + moveheight + ", percent = " + percent);
-
+                        //内容View处理，移动的高度等于头部View的高度
+                        mContentViewParams.topMargin = (int) (percent * mOriginalHeadMargin);
+                        mContentView.setLayoutParams(mContentViewParams);
+                        Log.d("MyStickyLayout", "mOriginalBottomMargin = " + mOriginalBottomMargin + " , topMargin = "
+                                + mHeadViewParams.topMargin + " , mOriginalMiddleMargin = " + mOriginalMiddleMargin + ", moveheight= " + moveheight + ", percent = " + percent);
+                    }
                 } else if (deltaY > 0 && mStatus == STATUS.EXPANDED) {
                     //下滑
                     mDirection = DIRECTION.DOWN;
-                    //底部View处理
-                    mBottomViewParams.topMargin += deltaY;
-                    mBottomView.setLayoutParams(mBottomViewParams);
+                    if (mBottomViewParams.topMargin < mOriginalBottomMargin) {
+                        //底部View处理
+                        mBottomViewParams.topMargin += deltaY;
+                        mBottomView.setLayoutParams(mBottomViewParams);
 
-                    //头部View处理
-                    float moveheight = mBottomViewParams.topMargin - Math.abs(mOriginalHeadMargin);//底部View移动的高度
-                    float percent = moveheight / mOriginalMiddleMargin;//底部View移动的百分比
-                    mHeadViewParams.topMargin = (int) (percent * mOriginalHeadMargin);//头部View移动的高度
-                    mHeadView.setLayoutParams(mHeadViewParams);
+                        //头部View处理
+                        float moveheight = mBottomViewParams.topMargin - Math.abs(mOriginalHeadMargin);//底部View移动的高度
+                        float percent = moveheight / mOriginalMiddleMargin;//底部View移动的百分比
+                        mHeadViewParams.topMargin = (int) (percent * mOriginalHeadMargin);//头部View移动的高度
+                        mHeadView.setLayoutParams(mHeadViewParams);
 
-                    //内容View处理，移动的高度等于头部View的高度
-                    mContentViewParams.topMargin = mOriginalHeadMargin - (int) (percent * mOriginalHeadMargin);
-                    mContentView.setLayoutParams(mContentViewParams);
+                        //内容View处理，移动的高度等于头部View的高度
+                        mContentViewParams.topMargin = mOriginalHeadMargin - (int) (percent * mOriginalHeadMargin);
+                        mContentView.setLayoutParams(mContentViewParams);
 
-
-                    Log.d("MyStickyLayout", "mOriginalBottomMargin = " + mOriginalBottomMargin + " , topMargin = " + mHeadViewParams.topMargin + " , mOriginalMiddleMargin = " + mOriginalMiddleMargin + ", percent = " + percent);
+                        Log.d("MyStickyLayout", "mOriginalBottomMargin = " + mOriginalBottomMargin + " , topMargin = "
+                                + mHeadViewParams.topMargin + " , mOriginalMiddleMargin = " + mOriginalMiddleMargin + ", percent = " + percent);
+                    }
                 }
                 break;
             case MotionEvent.ACTION_UP:
@@ -198,7 +201,7 @@ public class MyStickyLayout extends FrameLayout {
      * 处理上滑逻辑
      */
     private void dealUpSlidAnimator(float yVelocity) {
-        if (isUpSlideScrollToSlide()||Math.abs(yVelocity)>VELOCITY_MAX) {
+        if (isUpSlideScrollToSlide() || Math.abs(yVelocity) > VELOCITY_MAX) {
             mStatus = STATUS.EXPANDED;
             mHeadAnimator = ValueAnimator.ofInt(mHeadViewParams.topMargin, 0);
             mContentAnimator = ValueAnimator.ofInt(mContentViewParams.topMargin, mOriginalHeadMargin);
@@ -237,9 +240,9 @@ public class MyStickyLayout extends FrameLayout {
             }
         });
 
-            mHeadAnimator.setDuration(ANIMATION_TIME).start();
-            mContentAnimator.setDuration(ANIMATION_TIME).start();
-            mBottomAnimator.setDuration(ANIMATION_TIME).start();
+        mHeadAnimator.setDuration(ANIMATION_TIME).start();
+        mContentAnimator.setDuration(ANIMATION_TIME).start();
+        mBottomAnimator.setDuration(ANIMATION_TIME).start();
 
     }
 
@@ -247,7 +250,7 @@ public class MyStickyLayout extends FrameLayout {
      * 处理下滑逻辑
      */
     private void dealDownSlidAnimator(float yVelocity) {
-        if (isDownSlideScrollToSlide()||Math.abs(yVelocity)>VELOCITY_MAX) {
+        if (isDownSlideScrollToSlide() || Math.abs(yVelocity) > VELOCITY_MAX) {
             mStatus = STATUS.COLLAPSED;
             mHeadAnimator = ValueAnimator.ofInt(mHeadViewParams.topMargin, mOriginalHeadMargin);
             mContentAnimator = ValueAnimator.ofInt(mContentViewParams.topMargin, mOriginalContentMargin);
@@ -286,9 +289,9 @@ public class MyStickyLayout extends FrameLayout {
             }
         });
 
-            mHeadAnimator.setDuration(ANIMATION_TIME).start();
-            mContentAnimator.setDuration(ANIMATION_TIME).start();
-            mBottomAnimator.setDuration(ANIMATION_TIME).start();
+        mHeadAnimator.setDuration(ANIMATION_TIME).start();
+        mContentAnimator.setDuration(ANIMATION_TIME).start();
+        mBottomAnimator.setDuration(ANIMATION_TIME).start();
 
     }
 
@@ -297,7 +300,7 @@ public class MyStickyLayout extends FrameLayout {
      */
     private boolean isUpSlideScrollToSlide() {
         //滑动距离超过底部View的topMargin的一半
-        return mBottomViewParams.topMargin < mOriginalBottomMargin / 1.5;
+        return mBottomViewParams.topMargin < mOriginalBottomMargin / 2;
     }
 
     /**
@@ -305,7 +308,7 @@ public class MyStickyLayout extends FrameLayout {
      */
     private boolean isDownSlideScrollToSlide() {
         //滑动距离超过底部View的topMargin的一半
-        return mBottomViewParams.topMargin > mOriginalBottomMargin / 3;
+        return mBottomViewParams.topMargin > mOriginalBottomMargin / 2;
     }
 
     public interface TopTouchEventListener {
